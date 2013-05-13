@@ -29,3 +29,11 @@ def valid_year(year):
         year = int(year)
         if year >= 1900 and year < 2020:
             return year
+
+
+def rot13(text):
+    rot13 = ''
+    if text:
+        s = str(text)
+        rot13 = s.encode('rot13')
+    return rot13
