@@ -30,3 +30,35 @@ rot13 = """
     <input type="submit">
 </form>
 """
+
+
+signup = """
+<form method="post">
+    <table>
+        <tr>
+            <td>Signup</td>
+        </tr>
+        <tr>
+            <td>Username</td>
+            <td><input type="text" name="username" value="%(username)s"></td>
+            <td><div style="color: red">%(error_username)s</div></td>
+        </tr>
+        <tr>
+            <td>Password</td>
+            <td><input type="password" name="password" value=""></td>
+            <td><div style="color: red">%(error_password)s</div></td>
+        </tr>
+        <tr>
+            <td>Verify Password</td>
+            <td><input type="password" name="verify" value=""></td>
+            <td><div style="color: red">%(error_verify)s</div></td>
+        </tr>
+        <tr>
+            <td>E-mail (optional)</td>
+            <td><input type="text" name="email" value="%(email)s"></td>
+            <td><div style="color: red">%(error_email)s</div></td>
+        </tr>
+    </table>
+    <input type="submit">
+</form>
+"""
