@@ -1,9 +1,4 @@
-import cgi
 import re
-
-
-def escape_html(s):
-    return cgi.escape(s, quote=True)
 
 
 months = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
