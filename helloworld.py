@@ -152,11 +152,62 @@ class Ascii(BaseHandler):
             self.render_ascii(title, art, error)
 
 
+class Post(db.Model):
+    subject = db.StringProperty(required=True)
+    content = db.TextProperty(required=True)
+    created = db.DateTimeProperty(auto_now_add=True)
+    last_modified = db.DateTimeProperty(auto_now=True)
+
+
+class Blog(BaseHandler):
+    def get(self):
+        posts = db.GqlQuery("SELECT * FROM Post "
+                            "ORDER BY created DESC LIMIT 10")
+        self.render('blog.html', posts=posts)
+
+
+class NewPost(BaseHandler):
+    def render_newpost(self, subject="", content="", error=""):
+        self.render('newpost-form.html', subject=subject, content=content,
+                    error=error)
+
+    def get(self):
+        self.render_newpost()
+
+    def post(self):
+        subject = self.request.get('subject')
+        content = self.request.get('content')
+
+        if subject and content:
+            p = Post(subject=subject, content=content)
+            p.put()
+            post_id = str(p.key().id())
+            self.redirect('/blog/%s' % post_id)
+        else:
+            error = "We need both a title and a post!"
+            self.render_newpost(subject, content, error)
+
+
+class Permalink(BaseHandler):
+    def get(self, post_id):
+        key = db.Key.from_path('Post', int(post_id))
+        post = db.get(key)
+
+        if not post:
+            self.error(404)
+            return
+
+        self.render('permalink.html', post=post)
+
+
 app = webapp2.WSGIApplication([('/', MainPage),
                                ('/birthday', Birthday),
                                ('/thanks', Thanks),
                                ('/rot13', Rot13),
                                ('/signup', Signup),
                                ('/welcome', Welcome),
-                               ('/ascii', Ascii)],
+                               ('/ascii', Ascii),
+                               ('/blog/?', Blog),
+                               ('/blog/newpost', NewPost),
+                               ('/blog/([0-9]+)', Permalink)],
                               debug=True)
