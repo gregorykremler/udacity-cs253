@@ -1,4 +1,5 @@
 import re
+import hmac
 
 
 months = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
@@ -53,3 +54,20 @@ EMAIL_RE = re.compile(r"^[\S]+@[\S]+\.[\S]+$")
 
 def valid_email(email):
     return not email or EMAIL_RE.match(email)
+
+
+SECRET = 'imsosecret'
+
+
+def hash_str(s):
+    return hmac.new(SECRET, s).hexdigest()
+
+
+def make_secure_val(s):
+    return "%s|%s" % (s, hash_str(s))
+
+
+def check_secure_val(h):
+    val = h.split('|')[0]
+    if h == make_secure_val(val):
+        return val

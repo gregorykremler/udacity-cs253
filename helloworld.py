@@ -200,6 +200,28 @@ class Permalink(BaseHandler):
         self.render('permalink.html', post=post)
 
 
+class Visits(BaseHandler):
+    def get(self):
+        self.response.headers['Content-Type'] = 'text/plain'
+        visits = 0
+        visit_cookie_str = self.request.cookies.get('visits')
+        if visit_cookie_str:
+            cookie_val = v.check_secure_val(visit_cookie_str)
+            if cookie_val:
+                visits = int(cookie_val)
+
+        visits += 1
+
+        new_cookie_val = v.make_secure_val(str(visits))
+
+        self.response.headers.add_header('Set-Cookie', 'visits=%s' % new_cookie_val)
+
+        if visits > 10:
+            self.write("You are the best ever!")
+        else:
+            self.write("You've been here %s times!" % visits)
+
+
 app = webapp2.WSGIApplication([('/', MainPage),
                                ('/birthday', Birthday),
                                ('/thanks', Thanks),
@@ -207,6 +229,7 @@ app = webapp2.WSGIApplication([('/', MainPage),
                                ('/signup', Signup),
                                ('/welcome', Welcome),
                                ('/ascii', Ascii),
+                               ('/visits', Visits),
                                ('/blog/?', Blog),
                                ('/blog/newpost', NewPost),
                                ('/blog/([0-9]+)', Permalink)],
