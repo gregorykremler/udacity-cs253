@@ -21,6 +21,15 @@ class BaseHandler(webapp2.RequestHandler):
     def render(self, template, **kw):
         self.write(self.render_str(template, **kw))
 
+    def set_secure_cookie(self, name, val):
+        cookie_val = v.make_secure_val(val)
+        self.response.headers.add_header('Set-Cookie',
+                                         '%s=%s; Path=/' % (name, cookie_val))
+
+    def read_secure_cookie(self, name):
+        cookie_val = self.request.cookies.get(name)
+        return cookie_val and v.check_secure_val(cookie_val)
+
 
 class MainPage(BaseHandler):
     def get(self):
@@ -68,6 +77,13 @@ class Rot13(BaseHandler):
         self.render_rot13(text)
 
 
+class User(db.Model):
+    name = db.StringProperty(required=True)
+    pw_hash = db.StringProperty(required=True)
+    email = db.StringProperty()
+    created = db.DateTimeProperty(auto_now_add=True)
+
+
 class Signup(BaseHandler):
     def render_signup(self, username="", error_username="",
                       password="", error_password="",
@@ -110,14 +126,61 @@ class Signup(BaseHandler):
         if have_error:
             self.render_signup(**params)
         else:
-            self.redirect('/welcome?username=' + username)
+            user = db.GqlQuery("SELECT * FROM User "
+                               "WHERE name = :name ", name=username).get()
+            # make sure the user doesn't already exist
+            if user:
+                error_username = "That user already exists."
+                self.render_signup(username=username,
+                                   error_username=error_username,
+                                   email=email)
+            else:
+                pw_hash = v.make_pw_hash(username, password)
+                user = User(name=username, pw_hash=pw_hash, email=email)
+                user.put()
+                user_id = str(user.key().id())
+                self.set_secure_cookie('user_id', user_id)
+                self.redirect('/welcome')
+
+
+class Login(BaseHandler):
+    def render_login(self, username="", password="", error=""):
+        self.render('login-form.html', username=username, password=password,
+                    error=error)
+
+    def get(self):
+        self.render_login()
+
+    def post(self):
+        username = self.request.get('username')
+        password = self.request.get('password')
+        user = db.GqlQuery("SELECT * FROM User "
+                           "WHERE name = :name ", name=username).get()
+        # authenticate pw_hash for this username
+        if user and v.valid_pw_hash(username, password, user.pw_hash):
+            user_id = str(user.key().id())
+            self.set_secure_cookie('user_id', user_id)
+            self.redirect('/welcome')
+        else:
+            error = "Invalid login"
+            self.render_login(username=username, error=error)
+
+
+class Logout(BaseHandler):
+    def get(self):
+        self.response.headers.add_header('Set-Cookie', 'user_id=; Path=/')
+        self.redirect('/signup')
 
 
 class Welcome(BaseHandler):
     def get(self):
-        username = self.request.get('username')
-        if v.valid_username(username):
-            self.render('welcome.html', username=username)
+        user = ''
+        user_cookie_val = self.read_secure_cookie('user_id')
+        if user_cookie_val:
+            user = User.get_by_id(int(user_cookie_val))
+
+        if user:
+            self.render('welcome.html', username=user.name)
         else:
             self.redirect('/signup')
 
@@ -214,7 +277,8 @@ class Visits(BaseHandler):
 
         new_cookie_val = v.make_secure_val(str(visits))
 
-        self.response.headers.add_header('Set-Cookie', 'visits=%s' % new_cookie_val)
+        self.response.headers.add_header('Set-Cookie',
+                                         'visits=%s' % new_cookie_val)
 
         if visits > 10:
             self.write("You are the best ever!")
@@ -227,6 +291,8 @@ app = webapp2.WSGIApplication([('/', MainPage),
                                ('/thanks', Thanks),
                                ('/rot13', Rot13),
                                ('/signup', Signup),
+                               ('/login', Login),
+                               ('/logout', Logout),
                                ('/welcome', Welcome),
                                ('/ascii', Ascii),
                                ('/visits', Visits),
