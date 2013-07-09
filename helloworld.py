@@ -30,6 +30,12 @@ class BaseHandler(webapp2.RequestHandler):
         cookie_val = self.request.cookies.get(name)
         return cookie_val and v.check_secure_val(cookie_val)
 
+    def login(self, user):
+        self.set_secure_cookie('user_id', str(user.key().id()))
+
+    def logout(self):
+        self.response.headers.add_header('Set-Cookie', 'user_id=; Path=/')
+
 
 class MainPage(BaseHandler):
     def get(self):
@@ -83,6 +89,27 @@ class User(db.Model):
     email = db.StringProperty()
     created = db.DateTimeProperty(auto_now_add=True)
 
+    @classmethod
+    def by_id(cls, user_id):
+        return cls.get_by_id(user_id)
+
+    @classmethod
+    def by_name(cls, username):
+        user = db.GqlQuery("SELECT * FROM User "
+                           "WHERE name = :name ", name=username).get()
+        return user
+
+    @classmethod
+    def register(cls, username, password, email=None):
+        pw_hash = v.make_pw_hash(username, password)
+        return cls(name=username, pw_hash=pw_hash, email=email)
+
+    @classmethod
+    def authenticate(cls, username, password):
+        user = cls.by_name(username)
+        if user and v.valid_pw_hash(username, password, user.pw_hash):
+            return user
+
 
 class Signup(BaseHandler):
     def render_signup(self, username="", error_username="",
@@ -100,47 +127,58 @@ class Signup(BaseHandler):
 
     def post(self):
         have_error = False
-        username = self.request.get('username')
-        password = self.request.get('password')
-        verify = self.request.get('verify')
-        email = self.request.get('email')
+        self.username = self.request.get('username')
+        self.password = self.request.get('password')
+        self.verify = self.request.get('verify')
+        self.email = self.request.get('email')
 
-        params = dict(username=username,
-                      email=email)
+        params = dict(username=self.username,
+                      email=self.email)
 
-        if not v.valid_username(username):
+        if not v.valid_username(self.username):
             params['error_username'] = "That's not a valid username."
             have_error = True
 
-        if not v.valid_password(password):
+        if not v.valid_password(self.password):
             params['error_password'] = "That wasn't a valid password."
             have_error = True
-        elif password != verify:
+        elif self.password != self.verify:
             params['error_verify'] = "Your passwords didn't match."
             have_error = True
 
-        if not v.valid_email(email):
+        if not v.valid_email(self.email):
             params['error_email'] = "That's not a valid e-mail."
             have_error = True
 
         if have_error:
             self.render_signup(**params)
         else:
-            user = db.GqlQuery("SELECT * FROM User "
-                               "WHERE name = :name ", name=username).get()
-            # make sure the user doesn't already exist
-            if user:
-                error_username = "That user already exists."
-                self.render_signup(username=username,
-                                   error_username=error_username,
-                                   email=email)
-            else:
-                pw_hash = v.make_pw_hash(username, password)
-                user = User(name=username, pw_hash=pw_hash, email=email)
-                user.put()
-                user_id = str(user.key().id())
-                self.set_secure_cookie('user_id', user_id)
-                self.redirect('/welcome')
+            self.welcome()
+
+    def welcome(self, *a, **kw):
+        raise NotImplementedError
+
+
+class ParamSignup(Signup):
+    def welcome(self):
+        self.redirect('/welcome?username=' + self.username)
+
+
+class CookieSignup(Signup):
+    def welcome(self):
+        user = User.by_name(self.username)
+        # make sure the user doesn't already exist
+        if user:
+            error_username = "That user already exists."
+            self.render_signup(username=self.username,
+                               error_username=error_username,
+                               email=self.email)
+        else:
+            user = User.register(self.username, self.password, self.email)
+            user.put()
+            user_id = str(user.key().id())
+            self.set_secure_cookie('user_id', user_id)
+            self.redirect('/cookie-welcome')
 
 
 class Login(BaseHandler):
@@ -154,13 +192,12 @@ class Login(BaseHandler):
     def post(self):
         username = self.request.get('username')
         password = self.request.get('password')
-        user = db.GqlQuery("SELECT * FROM User "
-                           "WHERE name = :name ", name=username).get()
+
         # authenticate pw_hash for this username
-        if user and v.valid_pw_hash(username, password, user.pw_hash):
-            user_id = str(user.key().id())
-            self.set_secure_cookie('user_id', user_id)
-            self.redirect('/welcome')
+        user = User.authenticate(username, password)
+        if user:
+            self.login(user)
+            self.redirect('/cookie-welcome')
         else:
             error = "Invalid login"
             self.render_login(username=username, error=error)
@@ -168,19 +205,28 @@ class Login(BaseHandler):
 
 class Logout(BaseHandler):
     def get(self):
-        self.response.headers.add_header('Set-Cookie', 'user_id=; Path=/')
-        self.redirect('/signup')
+        self.logout()
+        self.redirect('/cookie-signup')
 
 
-class Welcome(BaseHandler):
+class CookieWelcome(BaseHandler):
     def get(self):
         user = ''
         user_cookie_val = self.read_secure_cookie('user_id')
         if user_cookie_val:
-            user = User.get_by_id(int(user_cookie_val))
+            user = User.by_id(int(user_cookie_val))
 
         if user:
             self.render('welcome.html', username=user.name)
+        else:
+            self.redirect('/cookie-signup')
+
+
+class Welcome(BaseHandler):
+    def get(self):
+        username = self.request.get('username')
+        if v.valid_username(username):
+            self.render('welcome.html', username=username)
         else:
             self.redirect('/signup')
 
@@ -290,10 +336,12 @@ app = webapp2.WSGIApplication([('/', MainPage),
                                ('/birthday', Birthday),
                                ('/thanks', Thanks),
                                ('/rot13', Rot13),
-                               ('/signup', Signup),
+                               ('/signup', ParamSignup),
+                               ('/welcome', Welcome),
+                               ('/cookie-signup', CookieSignup),
                                ('/login', Login),
                                ('/logout', Logout),
-                               ('/welcome', Welcome),
+                               ('/cookie-welcome', CookieWelcome),
                                ('/ascii', Ascii),
                                ('/visits', Visits),
                                ('/blog/?', Blog),
