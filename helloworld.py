@@ -1,6 +1,8 @@
 import os
 import webapp2
 import jinja2
+import urllib2
+from xml.dom import minidom
 import validations as v
 from google.appengine.ext import db
 
@@ -176,8 +178,8 @@ class CookieSignup(Signup):
         else:
             user = User.register(self.username, self.password, self.email)
             user.put()
-            user_id = str(user.key().id())
-            self.set_secure_cookie('user_id', user_id)
+
+            self.login(user)
             self.redirect('/cookie-welcome')
 
 
@@ -231,19 +233,61 @@ class Welcome(BaseHandler):
             self.redirect('/signup')
 
 
+IP_URL = "http://api.hostip.info/?ip="
+
+
+def get_coords(ip):
+    url = IP_URL + ip
+    content = None
+
+    try:
+        content = urllib2.urlopen(url).read()
+    except URLError:
+        return
+
+    if content:
+        d = minidom.parseString(content)
+        coords = d.getElementsByTagName("gml:coordinates")
+        if coords and coords[0].childNodes[0].nodeValue:
+            lon, lat = coords[0].childNodes[0].nodeValue.split(',')
+            return db.GeoPt(lat, lon)
+
+
+GMAPS_URL = ("http://maps.googleapis.com/maps/api/staticmap?"
+             "size=380x263&sensor=false&")
+
+
+def gmaps_img(points):
+    markers = '&'.join('markers=%s,%s' % (p.lat, p.lon) for p in points)
+    return GMAPS_URL + markers
+
+
 class Art(db.Model):
     title = db.StringProperty(required=True)
     art = db.TextProperty(required=True)
+    coords = db.GeoPtProperty()
     created = db.DateTimeProperty(auto_now_add=True)
 
 
 class Ascii(BaseHandler):
     def render_ascii(self, title="", art="", error=""):
         arts = db.GqlQuery("SELECT * FROM Art "
-                           "ORDER BY created DESC ")
+                           "ORDER BY created DESC "
+                           "LIMIT 10")
+
+        # cache query results
+        arts = list(arts)
+
+        # find which arts have coords
+        points = filter(None, (a.coords for a in arts))
+
+        # if we have any arts coords, make an image url
+        img_url = None
+        if points:
+            img_url = gmaps_img(points)
 
         self.render('ascii-form.html', title=title, art=art, error=error,
-                    arts=arts)
+                    arts=arts, img_url=img_url)
 
     def get(self):
         self.render_ascii()
@@ -254,6 +298,13 @@ class Ascii(BaseHandler):
 
         if title and art:
             a = Art(title=title, art=art)
+
+            # lookup the user's coordinates from their IP
+            coords = get_coords(self.request.remote_addr)
+
+            # if we have coordinates, add them to the Art
+            if coords:
+                a.coords = coords
             a.put()
             self.redirect('/ascii')
         else:
