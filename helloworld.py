@@ -3,6 +3,7 @@ import webapp2
 import jinja2
 import urllib2
 from xml.dom import minidom
+import json
 import validations as v
 from google.appengine.ext import db
 
@@ -23,6 +24,12 @@ class BaseHandler(webapp2.RequestHandler):
     def render(self, template, **kw):
         self.write(self.render_str(template, **kw))
 
+    def render_json(self, d):
+        json_txt = json.dumps(d)
+        self.response.headers['Content-Type'] = ('application/json; '
+                                                 'charset-UTF-8')
+        self.write(json_txt)
+
     def set_secure_cookie(self, name, val):
         cookie_val = v.make_secure_val(val)
         self.response.headers.add_header('Set-Cookie',
@@ -37,6 +44,18 @@ class BaseHandler(webapp2.RequestHandler):
 
     def logout(self):
         self.response.headers.add_header('Set-Cookie', 'user_id=; Path=/')
+
+    # Override __init__ to check for user cookie on each request
+    # If request URL ends with .json set 'json' format, else 'html'
+    def initialize(self, *a, **kw):
+        webapp2.RequestHandler.initialize(self, *a, **kw)
+        user_id = self.read_secure_cookie('user_id')
+        self.user = user_id and User.by_id(int(user_id))
+
+        if self.request.url.endswith('.json'):
+            self.format = 'json'
+        else:
+            self.format = 'html'
 
 
 class MainPage(BaseHandler):
@@ -169,7 +188,8 @@ class ParamSignup(Signup):
 class CookieSignup(Signup):
     def welcome(self):
         user = User.by_name(self.username)
-        # make sure the user doesn't already exist
+
+        # Make sure the user doesn't already exist
         if user:
             error_username = "That user already exists."
             self.render_signup(username=self.username,
@@ -195,7 +215,7 @@ class Login(BaseHandler):
         username = self.request.get('username')
         password = self.request.get('password')
 
-        # authenticate pw_hash for this username
+        # Authenticate pw_hash for this username
         user = User.authenticate(username, password)
         if user:
             self.login(user)
@@ -213,13 +233,8 @@ class Logout(BaseHandler):
 
 class CookieWelcome(BaseHandler):
     def get(self):
-        user = ''
-        user_cookie_val = self.read_secure_cookie('user_id')
-        if user_cookie_val:
-            user = User.by_id(int(user_cookie_val))
-
-        if user:
-            self.render('welcome.html', username=user.name)
+        if self.user:
+            self.render('welcome.html', username=self.user.name)
         else:
             self.redirect('/cookie-signup')
 
@@ -275,13 +290,13 @@ class Ascii(BaseHandler):
                            "ORDER BY created DESC "
                            "LIMIT 10")
 
-        # cache query results
+        # Cache query results
         arts = list(arts)
 
-        # find which arts have coords
+        # Find which arts have coords
         points = filter(None, (a.coords for a in arts))
 
-        # if we have any arts coords, make an image url
+        # If we have any arts coords, make an image url
         img_url = None
         if points:
             img_url = gmaps_img(points)
@@ -299,10 +314,10 @@ class Ascii(BaseHandler):
         if title and art:
             a = Art(title=title, art=art)
 
-            # lookup the user's coordinates from their IP
+            # Look up the user's coordinates from their IP
             coords = get_coords(self.request.remote_addr)
 
-            # if we have coordinates, add them to the Art
+            # If we have coordinates, add them to the Art
             if coords:
                 a.coords = coords
             a.put()
@@ -318,12 +333,24 @@ class Post(db.Model):
     created = db.DateTimeProperty(auto_now_add=True)
     last_modified = db.DateTimeProperty(auto_now=True)
 
+    def as_dict(self):
+        date_format = '%b %d, %Y'
+        post_dict = {'subject': self.subject,
+                     'content': self.content,
+                     'created': self.created.strftime(date_format),
+                     'last_modified': self.last_modified.strftime(date_format)}
+        return post_dict
+
 
 class Blog(BaseHandler):
     def get(self):
         posts = db.GqlQuery("SELECT * FROM Post "
                             "ORDER BY created DESC LIMIT 10")
-        self.render('blog.html', posts=posts)
+
+        if self.format == 'html':
+            self.render('blog.html', posts=posts)
+        elif self.format == 'json':
+            self.render_json([p.as_dict() for p in posts])
 
 
 class NewPost(BaseHandler):
@@ -339,9 +366,9 @@ class NewPost(BaseHandler):
         content = self.request.get('content')
 
         if subject and content:
-            p = Post(subject=subject, content=content)
-            p.put()
-            post_id = str(p.key().id())
+            post = Post(subject=subject, content=content)
+            post.put()
+            post_id = str(post.key().id())
             self.redirect('/blog/%s' % post_id)
         else:
             error = "We need both a title and a post!"
@@ -350,14 +377,16 @@ class NewPost(BaseHandler):
 
 class Permalink(BaseHandler):
     def get(self, post_id):
-        key = db.Key.from_path('Post', int(post_id))
-        post = db.get(key)
+        post = Post.get_by_id(int(post_id))
 
         if not post:
             self.error(404)
             return
 
-        self.render('permalink.html', post=post)
+        if self.format == 'html':
+            self.render('permalink.html', post=post)
+        elif self.format == 'json':
+            self.render_json(post.as_dict())
 
 
 class Visits(BaseHandler):
@@ -395,7 +424,7 @@ app = webapp2.WSGIApplication([('/', MainPage),
                                ('/cookie-welcome', CookieWelcome),
                                ('/ascii', Ascii),
                                ('/visits', Visits),
-                               ('/blog/?', Blog),
+                               ('/blog/?(?:\.json)?', Blog),
                                ('/blog/newpost', NewPost),
-                               ('/blog/([0-9]+)', Permalink)],
+                               ('/blog/([0-9]+)(?:\.json)?', Permalink)],
                               debug=True)
