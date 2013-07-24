@@ -2,10 +2,12 @@ import os
 import webapp2
 import jinja2
 import urllib2
+import logging
 from xml.dom import minidom
 import json
 import validations as v
 from google.appengine.ext import db
+from google.appengine.api import memcache
 
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
@@ -284,14 +286,23 @@ class Art(db.Model):
     created = db.DateTimeProperty(auto_now_add=True)
 
 
-class Ascii(BaseHandler):
-    def render_ascii(self, title="", art="", error=""):
+def top_arts(update=False):
+    key = 'top'
+    arts = memcache.get(key)
+    if arts is None or update:
+        logging.error("DB QUERY")
         arts = db.GqlQuery("SELECT * FROM Art "
                            "ORDER BY created DESC "
                            "LIMIT 10")
-
         # Cache query results
         arts = list(arts)
+        memcache.set(key, arts)
+    return arts
+
+
+class Ascii(BaseHandler):
+    def render_ascii(self, title="", art="", error=""):
+        arts = top_arts()
 
         # Find which arts have coords
         points = filter(None, (a.coords for a in arts))
@@ -320,7 +331,12 @@ class Ascii(BaseHandler):
             # If we have coordinates, add them to the Art
             if coords:
                 a.coords = coords
+
             a.put()
+
+            # Rerun the query and update the cache
+            top_arts(True)
+
             self.redirect('/ascii')
         else:
             error = "We need both a title and some artwork!"
