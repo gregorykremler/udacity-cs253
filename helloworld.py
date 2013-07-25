@@ -6,6 +6,7 @@ import logging
 from xml.dom import minidom
 import json
 import validations as v
+from datetime import datetime, timedelta
 from google.appengine.ext import db
 from google.appengine.api import memcache
 
@@ -289,14 +290,17 @@ class Art(db.Model):
 def top_arts(update=False):
     key = 'top'
     arts = memcache.get(key)
-    if arts is None or update:
+
+    if update or arts is None:
         logging.error("DB QUERY")
         arts = db.GqlQuery("SELECT * FROM Art "
                            "ORDER BY created DESC "
                            "LIMIT 10")
+
         # Cache query results
         arts = list(arts)
         memcache.set(key, arts)
+
     return arts
 
 
@@ -358,13 +362,58 @@ class Post(db.Model):
         return post_dict
 
 
+def age_set(key, val):
+    save_time = datetime.utcnow()
+    memcache.set(key, (val, save_time))
+
+
+def age_get(key):
+    val_save_tuple = memcache.get(key)
+
+    if val_save_tuple:
+        val, save_time = val_save_tuple
+        # Compute age in seconds
+        age = (datetime.utcnow() - save_time).total_seconds()
+    else:
+        val, age = None, 0
+
+    return val, age
+
+
+def add_post(post):
+    post.put()
+    # Overwrite cache with new posts
+    get_posts(update=True)
+    return str(post.key().id())
+
+
+def get_posts(update=False):
+    mc_key = 'blogs'
+    posts, age = age_get(mc_key)
+    posts_query = db.GqlQuery("SELECT * FROM Post "
+                              "ORDER BY created DESC LIMIT 10")
+
+    if update or posts is None:
+        posts = list(posts_query)
+        age_set(mc_key, posts)
+
+    return posts, age
+
+
+def age_str(age):
+    s = 'queried %s seconds ago'
+    age = int(age)  # Convert float to int
+    if age == 1:
+        s = s.replace('seconds', 'second')
+    return s % age
+
+
 class Blog(BaseHandler):
     def get(self):
-        posts = db.GqlQuery("SELECT * FROM Post "
-                            "ORDER BY created DESC LIMIT 10")
+        posts, age = get_posts()
 
         if self.format == 'html':
-            self.render('blog.html', posts=posts)
+            self.render('blog.html', posts=posts, age=age_str(age))
         elif self.format == 'json':
             self.render_json([p.as_dict() for p in posts])
 
@@ -383,8 +432,7 @@ class NewPost(BaseHandler):
 
         if subject and content:
             post = Post(subject=subject, content=content)
-            post.put()
-            post_id = str(post.key().id())
+            post_id = add_post(post)
             self.redirect('/blog/%s' % post_id)
         else:
             error = "We need both a title and a post!"
@@ -393,16 +441,28 @@ class NewPost(BaseHandler):
 
 class Permalink(BaseHandler):
     def get(self, post_id):
-        post = Post.get_by_id(int(post_id))
+        post_key = 'post_' + post_id
+
+        post, age = age_get(post_key)
+        if not post:
+            post = Post.get_by_id(int(post_id))
+            age_set(post_key, post)
+            age = 0
 
         if not post:
             self.error(404)
             return
 
         if self.format == 'html':
-            self.render('permalink.html', post=post)
+            self.render('permalink.html', post=post, age=age_str(age))
         elif self.format == 'json':
             self.render_json(post.as_dict())
+
+
+class BlogFlush(BaseHandler):
+    def get(self):
+        memcache.flush_all()
+        self.redirect('/blog')
 
 
 class Visits(BaseHandler):
@@ -442,5 +502,6 @@ app = webapp2.WSGIApplication([('/', MainPage),
                                ('/visits', Visits),
                                ('/blog/?(?:\.json)?', Blog),
                                ('/blog/newpost', NewPost),
-                               ('/blog/([0-9]+)(?:\.json)?', Permalink)],
+                               ('/blog/([0-9]+)(?:\.json)?', Permalink),
+                               ('/blog/flush', BlogFlush)],
                               debug=True)

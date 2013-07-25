@@ -82,3 +82,11 @@ input[type=submit] {
     font-family: Helvetica, Arial, sans-serif;
     margin-top: 5px;
 }
+
+.age {
+    position: fixed;
+    bottom: 0px;
+    right: 0px;
+    color: gray;
+    font-size: 12px;
+}
