@@ -1,0 +1,45 @@
+body {
+    position: relative;
+    font-family: sans-serif;
+    width: 800px;
+    margin: 0 auto;
+    padding: 10px;
+}
+#map {
+    position: absolute;
+    right: 0;
+    top: 110px;
+}
+input[type=text] {
+    width: 400px;
+    height: 20px;
+    margin-bottom: 15px;
+}
+textarea {
+    width: 400px;
+    height: 200px;
+    font-family: monospace;
+}
+input[type=submit] {
+    margin-top: 0px;
+}
+#error {
+    color: red;
+    font-size: 16px;
+    height: 18px;
+    margin-bottom: 0px;
+}
+hr {
+    margin: 20px auto;
+}
+.art + .art {
+    margin-top: 40px;
+}
+.art-title {
+    font-weight: bold;
+    font-size: 20px;
+}
+.art-body {
+    margin: 0;
+    font-size: 12px;
+}

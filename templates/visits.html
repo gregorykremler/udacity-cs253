@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link type="text/css" rel="stylesheet" href="/static/visits.css"/>
+        <title>Visits</title>
+    </head>
+    <body>
+        <h1>Visits</h1>
+        {% if visits > 9 %}
+            <p>You are the best ever!</p>
+        {% else %}
+            {% if visits == 1 %}
+                <p>You've been here <span>{{visits}}</span> time!</p>
+            {% else %}
+                <p>You've been here <span>{{visits}}</span> times!</p>
+            {% endif %}
+        {% endif %}
+    </body>
+</html>

@@ -1,0 +1,51 @@
+body {
+    position: relative;
+    font-family: sans-serif;
+    width: 800px;
+    margin: 0 auto;
+    padding: 10px;
+ }
+a, a:visited, a:active {
+    color: gray;
+    text-decoration: none;
+    border-bottom: 1px dotted;
+ }
+#udacity, #udacity:visited, #udacity:active {
+    text-decoration: none;
+    border-bottom: none;
+    color: black;
+ }
+#udacity:hover {
+    color: orange;
+ }
+#cs253 {
+    border-bottom: none;
+ }
+#cs253:hover {
+    color: #8ACBE8;
+ }
+div table {
+    display: inline-block;
+    margin-top: 20px;
+ }
+th {
+    text-align: left;
+ }
+.column {
+    margin-left: 55px;
+ }
+td a:hover {
+    font-weight: bold;
+ }
+#auth {
+    width: 120px;
+ }
+#api {
+    width: 90px;
+ }
+#github {
+    border-bottom: none;
+}
+#github:hover {
+    color: #FF1D44;
+ }

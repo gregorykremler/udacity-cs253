@@ -1,28 +1,24 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Login</title>
-    <style type="text/css">
-      .error {color: red}
-    </style>
-  </head>
-  <body>
-    <form method="post">
-      <table>
-        <tr>
-          <td>Login</td>
-        <tr>
-        <tr>
-          <td>Username</td>
-          <td><input type="text" name="username" value="{{username}}"></td>
-        </tr>
-        <tr>
-          <td>Password</td>
-          <td><input type="password" name="password" value=""></td>
-        </tr>
-      </table>
-      <div style="color: red">{{error}}</div>
-      <input type="submit">
-    </form>
-  </body>
+    <head>
+        <link type="text/css" rel="stylesheet" href="/static/login.css"/>
+        <title>Login</title>
+    </head>
+    <body>
+        <h1>Login</h1>
+        <form method="post">
+            <table>
+                <tr>
+                    <td>Username</td>
+                    <td><input type="text" name="username" value="{{username}}"></td>
+                </tr>
+                <tr>
+                    <td>Password</td>
+                    <td><input type="password" name="password" value=""></td>
+                </tr>
+            </table>
+            <div id="error">{{error}}</div>
+            <input type="submit">
+        </form>
+    </body>
 </html>

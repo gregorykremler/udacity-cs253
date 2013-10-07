@@ -1,11 +1,12 @@
-{% extends "base.html" %}
+{% extends "cached-base.html" %}
 
 {% block content %}
     <div class="post">
         <div class="post-heading">
-            <a href="/blog/{{post.key().id()}}" class="post-title">{{post.subject}}</a>
+            <a href="/cached-blog/{{post.key().id()}}" class="post-title">{{post.subject}}</a>
             <div class="post-date">{{post.created.strftime('%b %d, %Y')}}</div>
         </div>
         <pre class="post-content">{{post.content}}</pre>
     </div>
+    <div id="age"> {{age}}</div>
 {% endblock %}

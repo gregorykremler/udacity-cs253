@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <link type="text/css" rel="stylesheet" href="/static/ascii.css"/>
-        <title>/ascii/</title>
+        <link type="text/css" rel="stylesheet" href="/static/mapscii.css"/>
+        <title>/mapscii/</title>
     </head>
     <body>
-        <h1>/ascii/</h1>
+        <h1>/mapscii/</h1>
         <form method="post">
             <label>
                 <div>Title</div>
@@ -18,6 +18,9 @@
             <div id="error">{{error}}</div>
             <input type="submit">
         </form>
+        {% if img_url %}
+            <img id="map" src="{{img_url}}"/>
+        {% endif %}
         <hr>
         {% for art in arts %}
             <div class="art">

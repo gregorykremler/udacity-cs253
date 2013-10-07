@@ -1,16 +1,15 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>ROT13</title>
-  </head>
-  <body>
-    <form method="post">
-      Enter some text to ROT13:
-      <br>
-      <textarea name="text"
-                style="height: 100px; width: 400px;">{{text}}</textarea>
-      <br>
-      <input type="submit">
-    </form>
+    <head>
+        <link type="text/css" rel="stylesheet" href="/static/rot13.css"/>
+        <title>ROT13</title>
+    </head>
+    <body>
+        <h1>Enter some text to ROT13:</h1>
+        <form method="post">
+            <textarea name="text">{{text}}</textarea>
+            <br><br>
+            <input type="submit">
+        </form>
   </body>
 </html>
