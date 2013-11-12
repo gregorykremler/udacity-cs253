@@ -1,5 +1,5 @@
 from handlers import BaseHandler
-import utils as u
+from lib import utils as u
 
 
 class Visits(BaseHandler):

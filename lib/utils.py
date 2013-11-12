@@ -104,4 +104,3 @@ def valid_pw_hash(name, pw, h):
     """Return True if h matches hash(name, pw, salt)."""
     salt = h.split(',')[1]
     return h == make_pw_hash(name, pw, salt)
-

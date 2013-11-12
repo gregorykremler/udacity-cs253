@@ -2,7 +2,7 @@ import webapp2
 import os
 import jinja2
 import json
-import utils as u
+from lib import utils as u
 from lib.DB.user import User
 
 

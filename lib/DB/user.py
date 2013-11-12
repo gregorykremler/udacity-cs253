@@ -1,5 +1,5 @@
 from google.appengine.ext import db
-import utils as u
+from lib import utils
 
 
 class User(db.Model):
@@ -22,12 +22,12 @@ class User(db.Model):
     # Create a user object
     @classmethod
     def register(cls, username, password, email=None):
-        pw_hash = u.make_pw_hash(username, password)
+        pw_hash = utils.make_pw_hash(username, password)
         return cls(name=username, pw_hash=pw_hash, email=email)
 
     # Check password against db hash
     @classmethod
     def authenticate(cls, username, password):
         user = cls.by_name(username)
-        if user and u.valid_pw_hash(username, password, user.pw_hash):
+        if user and utils.valid_pw_hash(username, password, user.pw_hash):
             return user

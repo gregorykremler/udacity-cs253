@@ -1,5 +1,6 @@
 from handlers import BaseHandler
-import utils as u
+from lib import utils as u
+
 
 class Birthday(BaseHandler):
     """Validate user birthdate."""

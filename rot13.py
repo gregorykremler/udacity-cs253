@@ -1,5 +1,6 @@
 from handlers import BaseHandler
-import utils as u
+from lib import utils as u
+
 
 class Rot13(BaseHandler):
     """Apply Rot13 cipher to text."""
