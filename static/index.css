@@ -47,5 +47,7 @@ td a:hover {
     border-bottom: none;
 }
 #github:hover {
-    color: #FF1D44;
+    /*color: #FF1D44;*/
+    /*color: #44a340;*/
+    color: #8cc665;
  }
